@@ -28,6 +28,9 @@
 > [!NOTE]
 > This lab needs your university email and GitHub alias in the Autochecker bot <https://t.me/auchebot>. If you haven't registered, do so now. If you want to change something, contact your TA or try `/reset` in the autochecker bot.
 
+> [!TIP]
+> In the instructions below, values you need to replace are marked like this: **`YOUR_VALUE`**. Replace the entire placeholder (including the `<` and `>` if present) with your actual value.
+
 ### 1.1. Set up your fork
 
 #### 1.1.1. Fork the course instructors' repo
@@ -38,7 +41,7 @@ We refer to your fork as `fork` and to the original repo as `upstream`.
 
 #### 1.1.2. Go to your fork
 
-1. Go to your fork, it should look like `https://github.com/<your-github-username>/se-toolkit-lab-7`.
+1. Go to your fork: `https://github.com/`**`YOUR_GITHUB_USERNAME`**`/se-toolkit-lab-7`.
 
 #### 1.1.3. Enable issues
 
@@ -58,8 +61,10 @@ We refer to your fork as `fork` and to the original repo as `upstream`.
 1. Clone your fork to your local machine:
 
    ```terminal
-   git clone https://github.com/<your-github-username>/se-toolkit-lab-7
+   git clone https://github.com/YOUR_GITHUB_USERNAME/se-toolkit-lab-7
    ```
+
+   Replace **`YOUR_GITHUB_USERNAME`** with your GitHub username.
 
 2. Open the forked repo in `VS Code`.
 
@@ -81,11 +86,11 @@ We refer to your fork as `fork` and to the original repo as `upstream`.
    Open `.env.docker.secret` and set:
 
    ```text
-   AUTOCHECKER_EMAIL=<your-email>@innopolis.university
-   AUTOCHECKER_PASSWORD=<your-github-username><your-telegram-alias>
+   AUTOCHECKER_EMAIL=YOUR_EMAIL@innopolis.university
+   AUTOCHECKER_PASSWORD=YOUR_GITHUB_USERNAMEYOUR_TELEGRAM_ALIAS
    ```
 
-   Example: if your GitHub username is `johndoe` and your Telegram alias is `jdoe`, the password is `johndoejdoe`.
+   Replace **`YOUR_EMAIL`**, **`YOUR_GITHUB_USERNAME`**, and **`YOUR_TELEGRAM_ALIAS`** with your actual values. Example: if your GitHub username is `johndoe` and your Telegram alias is `jdoe`, the password is `johndoejdoe`.
 
    > [!IMPORTANT]
    > The credentials must match your autochecker bot registration.
@@ -112,10 +117,12 @@ cd ../se-toolkit-lab-7
 **On your VM** (do this now so you don't forget):
 
 ```terminal
-ssh <your-vm-username>@<your-vm-ip>
+ssh YOUR_VM_USERNAME@YOUR_VM_IP
 cd ~/se-toolkit-lab-6
 docker compose --env-file .env.docker.secret down
 ```
+
+Replace **`YOUR_VM_USERNAME`** and **`YOUR_VM_IP`** with your values.
 
 > [!NOTE]
 > You must use `--env-file .env.docker.secret` — without it, `docker compose down` will fail because the compose file references required variables.
@@ -259,8 +266,10 @@ The autochecker tests your bot against your **deployed backend on your VM**. You
 3. Clone your fork on the VM:
 
    ```terminal
-   git clone https://github.com/<your-github-username>/se-toolkit-lab-7 ~/se-toolkit-lab-7
+   git clone https://github.com/YOUR_GITHUB_USERNAME/se-toolkit-lab-7 ~/se-toolkit-lab-7
    ```
+
+   Replace **`YOUR_GITHUB_USERNAME`** with your GitHub username.
 
 4. Create the environment file:
 
@@ -304,16 +313,15 @@ The autochecker tests your bot against your **deployed backend on your VM**. You
 8. Populate the database:
 
    ```terminal
-   curl -X POST http://localhost:42002/pipeline/sync \
-     -H "Authorization: Bearer <your-LMS_API_KEY>" \
-     -H "Content-Type: application/json" \
-     -d '{}'
+   curl -X POST http://localhost:42002/pipeline/sync -H "Authorization: Bearer YOUR_LMS_API_KEY" -H "Content-Type: application/json" -d '{}'
    ```
+
+   Replace **`YOUR_LMS_API_KEY`** with the value you set in `.env.docker.secret`.
 
 9. Verify the deployment:
 
    ```terminal
-   curl -s http://localhost:42002/items/ -H "Authorization: Bearer <your-LMS_API_KEY>" | head -c 200
+   curl -s http://localhost:42002/items/ -H "Authorization: Bearer YOUR_LMS_API_KEY" | head -c 200
    ```
 
    You should see a JSON array of items.
@@ -345,26 +353,32 @@ The autochecker needs to SSH into your VM as **your main user** to run checks (t
 Your bot needs an LLM for the intent routing feature (Task 3). [Qwen Code](../../wiki/qwen.md#what-is-qwen-code) provides **1000 free requests per day** and works from Russia — no VPN or credit card needed.
 
 > [!NOTE]
-> If you set up the Qwen Code API in Lab 6, it should still be running on your VM. Verify:
+> If you set up the Qwen Code API in Lab 6, it should still be running on your VM. Verify by running this **on your VM**:
 >
 > ```terminal
-> curl -s http://localhost:42005/v1/models -H "Authorization: Bearer <your-QWEN_API_KEY>" | head -c 100
+> grep QWEN_API_KEY ~/qwen-code-oai-proxy/.env
 > ```
 >
-> Your `QWEN_API_KEY` is in `~/qwen-code-oai-proxy/.env` on your VM.
+> This shows your key. Then test it:
 >
-> If this returns a JSON response, you're good — skip to the next step.
+> ```terminal
+> curl -s http://localhost:42005/v1/models -H "Authorization: Bearer YOUR_QWEN_API_KEY" | head -c 100
+> ```
+>
+> Replace **`YOUR_QWEN_API_KEY`** with the value from the grep output.
+>
+> If this returns a JSON response with model info, you're good — skip to the next step.
 
 1. [Set up the Qwen Code API on your VM](../../wiki/qwen-code-api.md#set-up-the-qwen-code-api-remote).
 
-   After completing the setup, you will have the Qwen API running on your VM at `http://localhost:<qwen-api-port>/v1`.
+   After completing the setup, you will have the Qwen API running on your VM at `http://localhost:42005/v1`.
 
 <details><summary><b>Alternative: OpenRouter (click to open)</b></summary>
 
 If you prefer [OpenRouter](https://openrouter.ai), register and get an API key. Then use:
 
 ```text
-OPENROUTER_API_KEY=<your-openrouter-key>
+OPENROUTER_API_KEY=your-openrouter-key
 LLM_API_BASE=https://openrouter.ai/api/v1
 LLM_MODEL=meta-llama/llama-3.3-70b-instruct:free
 ```
