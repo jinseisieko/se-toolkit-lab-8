@@ -53,10 +53,6 @@ The default values are in [`.env.docker.example`](../.env.docker.example).
 > `.env.docker.secret` was added to [`.gitignore`](./git.md#gitignore) because you may specify there
 > [secrets](./environments.md#secrets) such as the [API key](#api_key) or the [address of your VM](./vm.md#your-vm-ip-address).
 
-> [!TIP]
-> No edits are needed for local development.
-> The default values in [`.env.docker.example`](../.env.docker.example) work out of the box.
-
 ## `app`
 
 Variables for the backend [`app` service](./docker-compose-yml.md#app-service).

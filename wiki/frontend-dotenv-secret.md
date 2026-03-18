@@ -21,10 +21,6 @@ Default values: [`frontend/.env.example`](../frontend/.env.example)
 > It was added to [`.gitignore`](./git.md#gitignore) because you may specify there
 > [secrets](./environments.md#secrets) such as the [address of your VM](./vm.md#your-vm-ip-address).
 
-> [!TIP]
-> No edits are needed for local development.
-> The default values in [`frontend/.env.example`](../frontend/.env.example) work out of the box.
-
 ## `VITE_API_TARGET`
 
 The [LMS API URL](./lms-api.md#lms-api-url) that the `Vite` dev server [proxies](./web-infrastructure.md#reverse-proxy) requests to.
