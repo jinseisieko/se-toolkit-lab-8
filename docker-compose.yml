@@ -5,7 +5,7 @@ services:
       additional_contexts:
         workspace: .
       args:
-        REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:?'REGISTRY_PREFIX_DOCKER_HUB is required'}
+        REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:-}
     restart: unless-stopped
     networks:
       - lms-network
@@ -46,7 +46,7 @@ services:
         condition: service_started
 
   postgres:
-    image: ${REGISTRY_PREFIX_DOCKER_HUB}postgres:18.3-alpine
+    image: ${REGISTRY_PREFIX_DOCKER_HUB:-}postgres:18.3-alpine
     restart: unless-stopped
     networks:
       - lms-network
@@ -70,7 +70,7 @@ services:
       retries: 5
 
   pgadmin:
-    image: ${REGISTRY_PREFIX_DOCKER_HUB}dpage/pgadmin4:latest
+    image: ${REGISTRY_PREFIX_DOCKER_HUB:-}dpage/pgadmin4:latest
     restart: unless-stopped
     networks:
       - lms-network
@@ -88,7 +88,7 @@ services:
     build:
       context: client-web-react/
       args:
-        REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:?'REGISTRY_PREFIX_DOCKER_HUB is required'}
+        REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:-}
     volumes:
       - client-web-react:/output
 
@@ -99,7 +99,7 @@ services:
   #     additional_contexts:
   #       workspace: .
   #     args:
-  #       REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:?'REGISTRY_PREFIX_DOCKER_HUB is required'}
+  #       REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:-}
   #   restart: unless-stopped
   #   networks:
   #     - lms-network
@@ -124,13 +124,13 @@ services:
   #   build:
   #     context: ./nanobot-websocket-channel/client-web-flutter
   #     args:
-  #       REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:?'REGISTRY_PREFIX_DOCKER_HUB is required'}
-  #       REGISTRY_PREFIX_GHCR: ${REGISTRY_PREFIX_GHCR:?'REGISTRY_PREFIX_GHCR is required'}
+  #       REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:-}
+  #       REGISTRY_PREFIX_GHCR: ${REGISTRY_PREFIX_GHCR:-}
   #   volumes:
   #     - client-web-flutter:/output
 
   caddy:
-    image: ${REGISTRY_PREFIX_DOCKER_HUB}caddy:2.11-alpine
+    image: ${REGISTRY_PREFIX_DOCKER_HUB:-}caddy:2.11-alpine
     networks:
       - lms-network
     depends_on:
@@ -164,7 +164,7 @@ services:
     build:
       context: ./qwen-code-api
       args:
-        REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:?'REGISTRY_PREFIX_DOCKER_HUB is required'}
+        REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:-}
     restart: unless-stopped
     networks:
       - lms-network
@@ -204,7 +204,7 @@ services:
   #   build:
   #     context: ./nanobot-websocket-channel/client-telegram-bot
   #     args:
-  #       REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:?'REGISTRY_PREFIX_DOCKER_HUB is required'}
+  #       REGISTRY_PREFIX_DOCKER_HUB: ${REGISTRY_PREFIX_DOCKER_HUB:-}
   #   restart: unless-stopped
   #   networks:
   #     - lms-network
@@ -216,7 +216,7 @@ services:
   #     - nanobot
 
   victorialogs:
-    image: ${REGISTRY_PREFIX_DOCKER_HUB}victoriametrics/victoria-logs:latest
+    image: ${REGISTRY_PREFIX_DOCKER_HUB:-}victoriametrics/victoria-logs:latest
     restart: unless-stopped
     networks:
       - lms-network
@@ -229,7 +229,7 @@ services:
       - -retentionPeriod=7d
 
   victoriatraces:
-    image: ${REGISTRY_PREFIX_DOCKER_HUB}victoriametrics/victoria-traces:latest
+    image: ${REGISTRY_PREFIX_DOCKER_HUB:-}victoriametrics/victoria-traces:latest
     restart: unless-stopped
     networks:
       - lms-network
@@ -242,7 +242,7 @@ services:
       - -retentionPeriod=7d
 
   otel-collector:
-    image: ${REGISTRY_PREFIX_DOCKER_HUB}otel/opentelemetry-collector-contrib:latest
+    image: ${REGISTRY_PREFIX_DOCKER_HUB:-}otel/opentelemetry-collector-contrib:latest
     restart: unless-stopped
     networks:
       - lms-network

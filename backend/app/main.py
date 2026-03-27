@@ -37,14 +37,19 @@ app = FastAPI(
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(exc: Exception):
+async def unhandled_exception_handler(request: Request, exc: Exception):
     """Return error details in the response for easier debugging."""
     tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    logger.exception(
+        "unhandled_exception",
+        extra={"event": "unhandled_exception", "path": request.url.path},
+    )
     return JSONResponse(
         status_code=500,
         content={
             "detail": str(exc),
             "type": type(exc).__name__,
+            "path": request.url.path,
             "traceback": tb[-3:],  # last 3 lines of traceback
         },
     )

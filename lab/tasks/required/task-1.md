@@ -156,7 +156,7 @@ The agent works, but it could be smarter about *how* it uses tools. A **skill pr
 1. Write a skill prompt in your repo-local nanobot workspace, for example at `nanobot/workspace/skills/lms/SKILL.md`.
 
    The skill should teach the agent:
-   - Which `mcp_lms_*` tools are available and when to use each one
+   - Which `lms_*` tools are available and when to use each one
    - When a lab parameter is needed and not provided, ask the user which lab
    - Format numeric results nicely (percentages, counts)
    - Keep responses concise
