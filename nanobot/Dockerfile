@@ -20,10 +20,8 @@ WORKDIR /app
 # Copy root workspace files from workspace context (the repo root)
 COPY --from=workspace pyproject.toml uv.lock /app/
 
-# Copy mcp-lms from mcp context to ../mcp/mcp-lms relative to nanobot
+# Copy all workspace packages to their expected paths
 COPY --from=mcp mcp-lms /app/mcp/mcp-lms
-
-# Copy mcp-obs, nanobot-websocket-channel from workspace context
 COPY --from=workspace mcp/mcp-obs /app/mcp/mcp-obs
 COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
 
@@ -34,9 +32,9 @@ COPY . /app/nanobot
 # Copy config.json explicitly (it's gitignored but needed for runtime)
 COPY config.json /app/nanobot/config.json
 
-# Sync dependencies for nanobot package only
+# Sync dependencies from root workspace
 RUN --mount=type=cache,target=/root/.cache/uv \
-    cd /app/nanobot && uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --package nanobot
 
 # ---
 # Stage 2: use a final image without uv
