@@ -38,6 +38,8 @@ QWEN_API_KEY=qwen-api-key-lab6-2026  # Use this in .env.docker.secret
 QWEN_CODE_API_KEY=qwen-api-key-lab6-2026  # Not the oauth token from ~/.qwen/
 ```
 
+> **Important**: The OAuth token in `~/.qwen/oauth_creds.json` does NOT work directly with the old proxy. The proxy manages OAuth internally — you just need the proxy API key.
+
 ### DNS Configuration for Docker
 
 If you see DNS errors during build, add Google DNS to Docker:
@@ -180,9 +182,31 @@ curl http://localhost:42005/v1/models -H "Authorization: Bearer YOUR_QWEN_API_KE
 ### Task 1 — Local Testing
 
 ```bash
+# Install nanobot from pinned commit (avoid infected v0.1.4.post5 release)
 cd nanobot
-uv run nanobot agent --logs --session cli:test -c ./config.json -m "What labs are available?"
+uv add "nanobot-ai @ https://github.com/HKUDS/nanobot/archive/e7d371ec1e6531b28898ec2c869ef338e8dd46ec.zip"
+
+# Install MCP-LMS tools
+uv add mcp-lms --editable ../mcp/mcp-lms
+
+# Test bare agent (no MCP tools yet)
+uv run nanobot agent --logs --session cli:task1a -c ./config.json -m "What is the agentic loop?"
+
+# Test with MCP tools (expects real backend data)
+NANOBOT_LMS_BACKEND_URL=http://localhost:42002 NANOBOT_LMS_API_KEY=my-key \
+  uv run nanobot agent --logs --session cli:task1b -c ./config.json -m "What labs are available?"
+
+# Test skill prompt (should ask for lab selection)
+uv run nanobot agent --logs --session cli:task1c -c ./config.json -m "Show me the scores"
 ```
+
+**Expected Results:**
+
+| Test | Expected Behavior |
+|------|-------------------|
+| `task1a` (bare agent) | Explores filesystem, no backend access |
+| `task1b` (with MCP) | Returns real lab names from backend |
+| `task1c` (with skill) | Asks user to choose a lab first |
 
 ### Task 2 — Deploy
 
@@ -238,15 +262,37 @@ docker compose --env-file .env.docker.secret up -d
 
 ### LMS MCP (`mcp-lms`)
 
-| Tool | Purpose |
-|------|---------|
-| `lms_health` | Check backend health |
-| `lms_labs` | List available labs |
-| `lms_pass_rates` | Get lab pass rates |
-| `lms_scores` | Get learner scores for a lab |
-| `lms_completion` | Get completion stats |
-| `lms_timeline` | Get submission timeline |
-| `lms_top_learners` | Get top performers |
+| Tool | Purpose | Example Query |
+|------|---------|---------------|
+| `mcp_lms_lms_health` | Check backend health | "Is the LMS backend healthy?" |
+| `mcp_lms_lms_labs` | List available labs | "What labs are available?" |
+| `mcp_lms_lms_pass_rates` | Get lab pass rates | "Show pass rates for Lab 01" |
+| `mcp_lms_lms_scores` | Get learner scores | "Show me the scores" |
+| `mcp_lms_lms_completion_rate` | Get completion stats | "What's the completion rate?" |
+| `mcp_lms_lms_timeline` | Get submission timeline | "Show submission timeline" |
+| `mcp_lms_lms_top_learners` | Get top performers | "Who are the top learners?" |
+| `mcp_lms_lms_groups` | Get group performance | "Show group performance" |
+| `mcp_lms_lms_sync_pipeline` | Trigger ETL sync | "Sync the LMS data" |
+
+> **Note**: Tools are prefixed with `mcp_lms_` when called by nanobot.
+
+### Skill Pattern: Missing Lab Parameter
+
+When user asks for scores/pass-rates/completion without naming a lab:
+
+```markdown
+1. Call `mcp_lms_lms_labs` first
+2. Present labs to user
+3. Ask: "Which lab would you like to see?"
+4. Use selected lab ID for the actual query
+```
+
+**Example:**
+
+```
+User: "Show me the scores"
+Agent: "Here are the available labs: [1-8]. Which lab would you like to see?"
+```
 
 ### Observability MCP (`mcp-obs`)
 
@@ -266,6 +312,47 @@ docker compose --env-file .env.docker.secret up -d
 ---
 
 ## Nanobot Config Structure (`nanobot/config.json`)
+
+### Task 1A/B/C Working Config
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": "coder-model",
+      "provider": "custom",
+      "workspace": "./workspace"
+    }
+  },
+  "providers": {
+    "custom": {
+      "apiKey": "qwen-api-key-lab6-2026",
+      "apiBase": "http://localhost:42005/v1"
+    }
+  },
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 18790
+  },
+  "channels": {},
+  "tools": {
+    "mcpServers": {
+      "lms": {
+        "command": "python",
+        "args": ["-m", "mcp_lms"],
+        "env": {
+          "NANOBOT_LMS_BACKEND_URL": "http://localhost:42002",
+          "NANOBOT_LMS_API_KEY": "my-key"
+        }
+      }
+    }
+  }
+}
+```
+
+> **Note**: `config.json` is gitignored by default. Copy to VM via `scp` or create there.
+
+### Full Config (Tasks 2-4)
 
 ```json
 {
@@ -298,8 +385,8 @@ docker compose --env-file .env.docker.secret up -d
         "command": "python",
         "args": ["-m", "mcp_lms"],
         "env": {
-          "NANOBOT_LMS_BACKEND_URL": "...",
-          "NANOBOT_LMS_API_KEY": "..."
+          "NANOBOT_LMS_BACKEND_URL": "http://backend:8000",
+          "NANOBOT_LMS_API_KEY": "${LMS_API_KEY}"
         }
       },
       "obs": {
@@ -321,6 +408,19 @@ docker compose --env-file .env.docker.secret up -d
 
 ## Common Issues & Fixes
 
+### Task 1 Specific
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| `No API key configured` | Missing global config | Create `~/.nanobot/config.json` with providers section |
+| `Connection error` to LLM | Wrong API key or proxy down | Use `qwen-api-key-lab6-2026` for old proxy; check `docker ps` |
+| Agent explores filesystem | No MCP tools configured | Add `mcpServers.lms` to `config.json` |
+| MCP tools not appearing | `mcp-lms` not installed | Run `uv add mcp-lms --editable ../mcp/mcp-lms` |
+| `401 Not authenticated` | Using OAuth token with old proxy | Old proxy manages OAuth internally — use proxy API key |
+| Agent doesn't ask for lab | Skill prompt not loaded | Check `workspace/skills/lms/SKILL.md` exists with frontmatter |
+
+### General
+
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
 | `ModuleNotFoundError: qwen_code_api` | Submodule not built correctly | Use old proxy: `cd ~/qwen-code-oai-proxy && docker compose up -d` |
@@ -333,6 +433,7 @@ docker compose --env-file .env.docker.secret up -d
 | Port conflicts (42001-42005) | Lab 7 still running | `cd ~/se-toolkit-lab-7 && docker compose --env-file .env.docker.secret down` |
 | `getaddrinfo EAI_AGAIN` | Docker DNS resolution | Add Google DNS to `/etc/docker/daemon.json` and restart Docker |
 | Submodule empty (`qwen-code-api/`) | Not initialized | Run `git submodule update --init --recursive` |
+| `config.json` changes not pushed | File is gitignored | Copy via `scp` or create on VM directly |
 
 ### Qwen API Key Confusion
 
@@ -351,20 +452,59 @@ cat ~/qwen-code-oai-proxy/.env | grep QWEN_API_KEY
 QWEN_CODE_API_KEY=qwen-api-key-lab6-2026
 ```
 
+> **Important**: The OAuth token does NOT work directly with the old proxy. The proxy handles OAuth internally — you only need the proxy API key.
+
 ---
 
 ## Skill Prompt Patterns
 
 ### LMS Skill (`workspace/skills/lms/SKILL.md`)
 
-- When user asks about scores/pass-rates without lab → call `lms_labs` first, then ask to choose
-- Format percentages/counts nicely
-- Use `structured-ui` skill for rendering choices
+**Frontmatter (required):**
+
+```markdown
+---
+name: lms
+description: Use LMS MCP tools for live course data
+always: true
+---
+```
+
+**Key Rules:**
+
+- When user asks about scores/pass-rates/completion without lab → call `lms_labs` first, then ask to choose
+- Format percentages with 1 decimal (e.g., "75.3%")
+- Keep responses concise — summarize, don't dump raw JSON
+- When the user asks "what can you do?", explain current tools and limits
+
+**Example Behavior:**
+
+```
+User: "Show me the scores"
+Agent: [calls lms_labs] → "Here are the available labs: [1-8]. Which lab would you like to see?"
+```
+
+### Structured-UI Skill (Shared)
+
+The repo includes `workspace/skills/structured-ui/SKILL.md` for generic choice/confirm/composite behavior on supported chat channels. Your LMS skill should cooperate with it by:
+
+- Calling `lms_labs` when lab choice is needed
+- Providing short, readable lab labels
+- Providing stable lab values for follow-up tool calls
 
 ### Observability Skill (`workspace/skills/observability/SKILL.md`)
 
-- "Any errors?" → `logs_error_count` → `logs_search` → extract `trace_id` → `traces_get`
-- Summarize findings, don't dump raw JSON
+**Key Flow:**
+
+```
+"Any errors?" → logs_error_count → logs_search → extract trace_id → traces_get → summarize
+```
+
+**Rules:**
+
+- Search logs first when user asks about errors
+- If you find a trace ID in logs, fetch the full trace
+- Summarize findings concisely — don't dump raw JSON
 
 ---
 
