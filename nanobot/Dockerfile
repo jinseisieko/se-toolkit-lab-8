@@ -54,10 +54,8 @@ RUN groupadd --system --gid 999 nonroot \
 # Copy the application from the builder
 COPY --from=builder --chown=nonroot:nonroot /app /app
 
-# Create writable directories for nanobot workspace and config
-RUN mkdir -p /app/nanobot/workspace /app/nanobot/config && \
-    chown -R nonroot:nonroot /app/nanobot && \
-    chmod 755 /app/nanobot/config
+# Copy config.json explicitly (it's gitignored but needed for runtime)
+COPY config.json /app/nanobot/config.json
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"

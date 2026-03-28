@@ -17,8 +17,10 @@ def main():
     resolved_path = "/app/nanobot/config/config.resolved.json"
     workspace_path = "/app/nanobot/workspace"
 
-    # Ensure config directory exists (in case not created by Dockerfile)
-    os.makedirs(os.path.dirname(resolved_path), exist_ok=True)
+    # Ensure config directory exists and is writable
+    config_dir = os.path.dirname(resolved_path)
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir, mode=0o755, exist_ok=True)
 
     # Check if config file exists
     if not os.path.exists(config_path):
