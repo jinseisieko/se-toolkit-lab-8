@@ -20,21 +20,16 @@ WORKDIR /app
 # Copy root workspace files from workspace context (the repo root)
 COPY --from=workspace pyproject.toml uv.lock /app/
 
-# Copy mcp packages from mcp context
+# Copy mcp-lms from mcp context to ../mcp/mcp-lms relative to nanobot
 COPY --from=mcp mcp-lms /app/mcp/mcp-lms
 
-# Copy mcp-obs and nanobot-websocket-channel from workspace context
+# Copy mcp-obs, nanobot-websocket-channel from workspace context
 COPY --from=workspace mcp/mcp-obs /app/mcp/mcp-obs
 COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
 
 # Copy nanobot project files (from the primary context which is ./nanobot)
 COPY pyproject.toml /app/nanobot/pyproject.toml
 COPY . /app/nanobot
-
-# Copy nanobot-websocket-channel from nanobot context (it's a submodule inside nanobot/)
-# Actually it's at repo root, so we need to copy from workspace
-# For now, copy the whole directory into the image
-COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
 
 # Copy config.json explicitly (it's gitignored but needed for runtime)
 COPY config.json /app/nanobot/config.json
