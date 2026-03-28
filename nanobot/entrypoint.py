@@ -14,7 +14,7 @@ import sys
 def main():
     # Read the base config
     config_path = "/app/nanobot/config.json"
-    resolved_path = "/app/nanobot/config.resolved.json"
+    resolved_path = "/app/nanobot/config/config.resolved.json"
     workspace_path = "/app/nanobot/workspace"
 
     with open(config_path, "r") as f:
