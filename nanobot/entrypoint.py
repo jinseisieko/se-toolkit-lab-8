@@ -26,13 +26,8 @@ def main():
     llm_api_base_url = os.environ.get("LLM_API_BASE_URL")
     llm_api_model = os.environ.get("LLM_API_MODEL")
 
-    # Fix localhost URLs for Docker networking
-    # When running in Docker, localhost means the container itself
-    # Use host.docker.internal or VM IP to reach the host
-    if llm_api_base_url and "localhost" in llm_api_base_url:
-        # Try host.docker.internal first (works on Docker Desktop)
-        # For Linux VM, we'll use the gateway IP
-        llm_api_base_url = llm_api_base_url.replace("localhost", "host.docker.internal")
+    # Note: Docker networking uses service names (e.g., http://qwen-code-api:8080/v1)
+    # so no localhost replacement is needed here
 
     if llm_api_key:
         config["providers"]["custom"]["apiKey"] = llm_api_key
