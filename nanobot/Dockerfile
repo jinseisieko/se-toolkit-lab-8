@@ -17,12 +17,12 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 
-# Copy root workspace files for dependency resolution
-COPY pyproject.toml uv.lock /app/
+# Copy root workspace files from workspace context (the repo root)
+COPY --from=workspace pyproject.toml uv.lock /app/
 
-# Copy nanobot project
-COPY nanobot/pyproject.toml /app/nanobot/pyproject.toml
-COPY nanobot/ /app/nanobot/
+# Copy nanobot project files (from the primary context which is ./nanobot)
+COPY pyproject.toml /app/nanobot/pyproject.toml
+COPY . /app/nanobot
 
 # Sync dependencies (no dev deps, install nanobot package)
 RUN --mount=type=cache,target=/root/.cache/uv \
