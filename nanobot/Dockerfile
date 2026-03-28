@@ -24,9 +24,7 @@ COPY --from=workspace pyproject.toml uv.lock /app/
 COPY --from=mcp mcp-lms /app/mcp/mcp-lms
 
 # Copy nanobot-websocket-channel packages from workspace context
-COPY --from=workspace nanobot-websocket-channel/nanobot-channel-protocol /app/nanobot-websocket-channel/nanobot-channel-protocol
-COPY --from=workspace nanobot-websocket-channel/mcp-webchat /app/nanobot-websocket-channel/mcp-webchat
-COPY --from=workspace nanobot-websocket-channel/nanobot-webchat /app/nanobot-websocket-channel/nanobot-webchat
+COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
 
 # Copy nanobot project files (from the primary context which is ./nanobot)
 COPY pyproject.toml /app/nanobot/pyproject.toml
@@ -35,9 +33,9 @@ COPY . /app/nanobot
 # Copy config.json explicitly (it's gitignored but needed for runtime)
 COPY config.json /app/nanobot/config.json
 
-# Sync dependencies (no dev deps, install nanobot package)
+# Sync dependencies from root workspace (installs all workspace packages)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    cd /app/nanobot && uv sync --frozen --no-dev
+    uv sync --frozen --no-dev
 
 # ---
 # Stage 2: use a final image without uv
@@ -52,12 +50,14 @@ ENV PYTHONUNBUFFERED=1
 # Make sure we use UTF-8 encoding
 ENV LANG=C.UTF-8
 
-# Setup a non-root user
-RUN groupadd --system --gid 999 nonroot \
-    && useradd --system --gid 999 --uid 999 --create-home nonroot
+# Setup a non-root user matching host UID/GID for bind mounts
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN groupadd --system --gid ${APP_GID} appgroup && \
+    useradd --system --gid ${APP_GID} --uid ${APP_UID} --create-home appuser
 
 # Copy the application from the builder
-COPY --from=builder --chown=nonroot:nonroot /app /app
+COPY --from=builder --chown=appgroup:appgroup /app /app
 
 # Copy config.json explicitly (it's gitignored but needed for runtime)
 COPY config.json /app/nanobot/config.json
@@ -68,8 +68,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Use `/app/nanobot` as the working directory
 WORKDIR /app/nanobot
 
-# Use the non-root user to run our application
-USER nonroot
+# Use the app user to run our application
+USER ${APP_UID}:${APP_GID}
 
 # Run the nanobot gateway via entrypoint
 ENTRYPOINT ["python", "/app/nanobot/entrypoint.py"]
