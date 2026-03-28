@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from mcp.types import Tool
 from pydantic import BaseModel
 
-from mcp_obs.server import ObservabilityClient
+if TYPE_CHECKING:
+    from mcp_obs.server import ObservabilityClient
 
 
 class LogsSearchParams(BaseModel):
@@ -42,7 +43,8 @@ class TracesGetParams(BaseModel):
 
 
 ToolPayload = BaseModel | dict | list
-ToolHandler = Callable[[ObservabilityClient, BaseModel], Awaitable[ToolPayload]]
+# Use string annotation to avoid circular import
+ToolHandler = Callable[..., Awaitable[ToolPayload]]
 
 
 @dataclass(frozen=True, slots=True)
