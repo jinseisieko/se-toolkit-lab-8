@@ -27,10 +27,15 @@ COPY --from=mcp mcp-lms /app/mcp/mcp-lms
 COPY pyproject.toml /app/nanobot/pyproject.toml
 COPY . /app/nanobot
 
+# Copy nanobot-websocket-channel from nanobot context (it's a submodule inside nanobot/)
+# Actually it's at repo root, so we need to copy from workspace
+# For now, copy the whole directory into the image
+COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
+
 # Copy config.json explicitly (it's gitignored but needed for runtime)
 COPY config.json /app/nanobot/config.json
 
-# Sync dependencies (no dev deps, install nanobot package)
+# Sync dependencies for nanobot package only
 RUN --mount=type=cache,target=/root/.cache/uv \
     cd /app/nanobot && uv sync --frozen --no-dev
 
@@ -47,12 +52,14 @@ ENV PYTHONUNBUFFERED=1
 # Make sure we use UTF-8 encoding
 ENV LANG=C.UTF-8
 
-# Setup a non-root user
-RUN groupadd --system --gid 999 nonroot \
-    && useradd --system --gid 999 --uid 999 --create-home nonroot
+# Setup a non-root user matching host UID/GID for bind mounts
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN groupadd --system --gid ${APP_GID} appgroup && \
+    useradd --system --gid ${APP_GID} --uid ${APP_UID} --create-home appuser
 
 # Copy the application from the builder
-COPY --from=builder --chown=nonroot:nonroot /app /app
+COPY --from=builder --chown=appgroup:appgroup /app /app
 
 # Copy config.json explicitly (it's gitignored but needed for runtime)
 COPY config.json /app/nanobot/config.json
@@ -63,8 +70,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Use `/app/nanobot` as the working directory
 WORKDIR /app/nanobot
 
-# Use the non-root user to run our application
-USER nonroot
+# Use the app user to run our application
+USER ${APP_UID}:${APP_GID}
 
 # Run the nanobot gateway via entrypoint
 ENTRYPOINT ["python", "/app/nanobot/entrypoint.py"]

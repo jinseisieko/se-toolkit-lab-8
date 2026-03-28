@@ -4,24 +4,19 @@ members = [
   "qwen-code-api",
   "mcp/mcp-lms",
   "nanobot",
+  "nanobot-websocket-channel/nanobot-channel-protocol",
+  "nanobot-websocket-channel/mcp-webchat",
+  "nanobot-websocket-channel/nanobot-webchat",
   # Uncomment these later in the lab after you add the matching repos/packages.
   # "mcp/mcp-obs",
-  # "nanobot-websocket-channel/nanobot-channel-protocol",
-  # "nanobot-websocket-channel/mcp-webchat",
-  # "nanobot-websocket-channel/nanobot-webchat",
   # "nanobot-websocket-channel/client-telegram-bot",
 ]
 
 [tool.uv.sources]
 mcp-lms = { path = "mcp/mcp-lms", editable = true }
-
-# Uncomment these later in the lab after you add the matching repos/packages.
-
-# mcp-obs = { path = "mcp/mcp-obs", editable = true }
-# mcp-webchat = { path = "nanobot-websocket-channel/mcp-webchat", editable = true }
-# nanobot-channel-protocol = { path = "nanobot-websocket-channel/nanobot-channel-protocol", editable = true }
-# nanobot-webchat = { path = "nanobot-websocket-channel/nanobot-webchat", editable = true }
-# client-telegram-bot = { path = "nanobot-websocket-channel/client-telegram-bot", editable = true }
+nanobot-webchat = { path = "nanobot-websocket-channel/nanobot-webchat", editable = true }
+mcp-webchat = { path = "nanobot-websocket-channel/mcp-webchat", editable = true }
+nanobot-channel-protocol = { path = "nanobot-websocket-channel/nanobot-channel-protocol", editable = true }
 
 [dependency-groups]
 dev = [
@@ -129,23 +124,17 @@ include = [
   "scripts",
   "mcp",
   "qwen-code-api",
-  
-  # Uncomment this later in the lab after you add the matching repos/packages.
-  
-  # "nanobot-websocket-channel"
+  "nanobot-websocket-channel",
 ]
 extraPaths = [
   "backend/src",
   "mcp/mcp-lms/src",
   "mcp/mcp-obs/src",
   "qwen-code-api/src",
-  
-  # Uncomment these later in the lab after you add the matching repos/packages.
-  
-  # "nanobot-websocket-channel/mcp-webchat/src",
-  # "nanobot-websocket-channel/nanobot-channel-protocol/src",
-  # "nanobot-websocket-channel/client-telegram-bot/src",
-  # "nanobot-websocket-channel/nanobot-webchat/src",
+  "nanobot-websocket-channel/mcp-webchat/src",
+  "nanobot-websocket-channel/nanobot-channel-protocol/src",
+  "nanobot-websocket-channel/client-telegram-bot/src",
+  "nanobot-websocket-channel/nanobot-webchat/src",
 ]
 exclude = ["**/__pycache__", "**/node_modules", "**/.*", ".venv", ".direnv"]
 typeCheckingMode = "strict"
@@ -160,14 +149,6 @@ pythonpath = ["backend/src"]
 asyncio_mode = "auto"
 
 [tool.ty.src]
-include = [
-  "backend",
-  "mcp",
-  "qwen-code-api",
-  
-  # Uncomment this later in the lab after you add the matching repos/packages.
-  
-  # "nanobot-websocket-channel"
-]
+include = ["backend", "mcp", "qwen-code-api", "nanobot-websocket-channel"]
 
 [tool.ty.rules]

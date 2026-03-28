@@ -112,11 +112,64 @@ The skill prompt works — the agent asks for lab selection when the parameter i
 
 ## Task 2A — Deployed agent
 
-<!-- Paste a short nanobot startup log excerpt showing the gateway started inside Docker -->
+**Nanobot startup log excerpt:**
+
+```
+nanobot-1  | Using config: /app/nanobot/config/config.resolved.json
+nanobot-1  | 🐈 Starting nanobot gateway version 0.1.4.post5 on port 18790...
+nanobot-1  | 2026-03-28 10:55:05.192 | INFO     | nanobot.channels.manager:_init
+_channels:58 - WebChat channel enabled
+nanobot-1  | ✓ Channels enabled: webchat
+nanobot-1  | ✓ Heartbeat: every 1800s
+nanobot-1  | 2026-03-28 10:55:07.100 | INFO     | nanobot.agent.tools.mcp:connec
+t_mcp_servers:246 - MCP server 'lms': connected, 9 tools registered
+nanobot-1  | 2026-03-28 10:55:08.372 | INFO     | nanobot.agent.tools.mcp:connec
+t_mcp_servers:246 - MCP server 'webchat': connected, 1 tools registered
+nanobot-1  | 2026-03-28 10:55:08.372 | INFO     | nanobot.agent.loop:run:280 - A
+gent loop started
+```
+
+The nanobot gateway is running as a Docker service with:
+
+- WebChat channel enabled
+- MCP LMS server connected (9 tools)
+- MCP WebChat server connected (1 tool for UI messages)
 
 ## Task 2B — Web client
 
-<!-- Screenshot of a conversation with the agent in the Flutter web app -->
+**WebSocket test through Caddy:**
+
+```
+Request: {"content": "What labs are available?"}
+Response: {"type":"text","content":"Here are the available labs:\n\n1. **Lab 01**
+ – Products, Architecture & Roles\n2. **Lab 02** — Run, Fix, and Deploy a Backend
+ Service\n3. **Lab 03** — Backend API: Explore, Debug, Implement, Deploy\n4. **
+Lab 04** — Testing, Front-end, and AI Agents\n5. **Lab 05** — Data Pipeline and
+Analytics Dashboard\n6. **Lab 06** — Build Your Own Agent\n7. **Lab 07** — Build
+ a Client with an AI Coding Agent\n8. **lab-08**\n\nWould you like more details
+about any specific lab, such as pass rates, completion statistics, or learner
+performance?","format":"markdown"}
+```
+
+**Backend health check:**
+
+```
+Request: {"content": "How is the backend doing?"}
+Response: {"type":"text","content":"I'll check the backend health for you."...}
+```
+
+The Flutter web client is accessible at `http://localhost:42002/flutter` and the WebSocket endpoint at `/ws/chat` is working correctly.
+
+**Files changed for Task 2:**
+
+- `nanobot/entrypoint.py` — resolves env vars into config at runtime
+- `nanobot/Dockerfile` — multi-stage build with uv
+- `nanobot/config.json` — added webchat channel and mcp-webchat server
+- `nanobot/pyproject.toml` — added nanobot-webchat and mcp-webchat dependencies
+- `docker-compose.yml` — uncommented nanobot, client-web-flutter, caddy configs
+- `caddy/Caddyfile` — added /ws/chat and /flutter routes
+- `pyproject.toml` — added nanobot-websocket-channel workspace members
+- `nanobot-websocket-channel/` — new submodule for WebSocket channel and Flutter client
 
 ## Task 3A — Structured logging
 
