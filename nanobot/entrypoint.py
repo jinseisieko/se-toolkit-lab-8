@@ -103,6 +103,7 @@ def main():
     # Webchat MCP server env vars
     webchat_relay_url = os.environ.get("NANOBOT_WEBSOCKET_RELAY_URL")
     webchat_token = os.environ.get("NANOBOT_WEBSOCKET_TOKEN")
+    ui_relay_url = os.environ.get("NANOBOT_UI_RELAY_URL")
 
     if webchat_relay_url or webchat_token:
         if "webchat" not in config["tools"]["mcpServers"]:
@@ -120,6 +121,10 @@ def main():
             config["tools"]["mcpServers"]["webchat"]["env"][
                 "NANOBOT_WEBSOCKET_TOKEN"
             ] = webchat_token
+        if ui_relay_url:
+            config["tools"]["mcpServers"]["webchat"]["env"]["NANOBOT_UI_RELAY_URL"] = (
+                ui_relay_url
+            )
 
     # Observability MCP server env vars
     obs_victorialogs_url = os.environ.get("NANOBOT_VICTORIALOGS_URL")

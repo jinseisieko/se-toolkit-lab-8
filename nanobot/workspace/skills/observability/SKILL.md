@@ -11,10 +11,12 @@ You have access to VictoriaLogs and VictoriaTraces through MCP tools. Use them t
 ## Available Observability Tools
 
 ### Log Tools (VictoriaLogs)
+
 - `mcp_obs_logs_search` — Search logs using LogsQL queries
 - `mcp_obs_logs_error_count` — Count errors per service over a time window
 
 ### Trace Tools (VictoriaTraces)
+
 - `mcp_obs_traces_list` — List recent traces for a service
 - `mcp_obs_traces_get` — Fetch a specific trace by ID
 
@@ -27,7 +29,6 @@ You have access to VictoriaLogs and VictoriaTraces through MCP tools. Use them t
 2. **Search for details** — If errors exist, call `logs_search` with:
    - `time_range`: Match the error count window
    - `query`: Include `severity:ERROR` and optionally `service.name:"Service Name"`
-   
 3. **Extract trace_id** — From the log results, look for `trace_id` fields in error records
 
 4. **Fetch full trace** — Call `traces_get` with the trace_id to see the complete request flow and identify where the failure occurred
@@ -41,18 +42,21 @@ You have access to VictoriaLogs and VictoriaTraces through MCP tools. Use them t
 ### Query Patterns
 
 **Search for recent errors in a specific service:**
+
 ```
 query: _time:10m service.name:"Learning Management Service" severity:ERROR
 time_range: 10m
 ```
 
 **Count errors across all services:**
+
 ```
 time_range: 1h
 service: (leave empty for all services)
 ```
 
 **Get traces for a service:**
+
 ```
 service: Learning Management Service
 limit: 20
@@ -71,6 +75,7 @@ limit: 20
 **User**: "Any LMS backend errors in the last 10 minutes?"
 
 **You**:
+
 1. Call `logs_error_count` with `time_range: 10m`, `service: "Learning Management Service"`
 2. If errors > 0:
    - Call `logs_search` with `query: "service.name:\"Learning Management Service\" severity:ERROR"`, `time_range: 10m`
@@ -83,5 +88,47 @@ limit: 20
 ## When No Errors Found
 
 If the user asks about errors but none exist in the time window:
+
 - Report that clearly: "No errors found in {service} in the last {time_range}."
 - Optionally offer to check a longer time window or different service
+
+## Special Case: "What went wrong?" or "Check system health"
+
+When the user asks **"What went wrong?"**, **"Check system health"**, or similar diagnostic questions:
+
+### Execute this investigation flow in one pass:
+
+1. **Call `logs_error_count`** with `time_range: "10m"` and `service: "Learning Management Service"`
+   - This tells you if there are recent errors and confirms the affected service
+
+2. **Call `logs_search`** with:
+   - `time_range: "10m"`
+   - `query: "service.name:\"Learning Management Service\" severity:ERROR"`
+   - `limit: 10`
+   - Look for `trace_id` in the results
+
+3. **Call `traces_get`** with the first `trace_id` from the logs
+   - This shows the full request flow and where it failed
+
+4. **Summarize in one coherent response**:
+   - **Log evidence**: "I found {count} errors in the LMS backend in the last 10 minutes. The logs show: {error message from logs}"
+   - **Trace evidence**: "The trace shows the failure occurred at {span name} — {span details}"
+   - **Root cause**: "The underlying issue is {database connection failed / timeout / etc.}"
+
+### Important: Look for misleading error messages
+
+If the logs show a **404 "not found"** response but the trace shows a **database/PostgreSQL failure**, point out this discrepancy:
+
+> "The backend returned 404 'Items not found', but the trace shows the real issue was a PostgreSQL connection failure. The 404 is a misleading error message — the actual problem is the database is unreachable."
+
+This helps identify bugs in exception handling where the wrong HTTP status is returned.
+
+## Special Case: Cron Reminder for Health Check
+
+When a **cron reminder** message arrives (e.g., "Time for LMS health check!"), treat it as a trigger to run the full investigation:
+
+1. Immediately call `logs_error_count` with `time_range: "2m"` (matching the cron interval)
+2. If errors > 0: run the full investigation flow (logs_search → traces_get → summarize)
+3. If errors = 0: post "System looks healthy — no errors in the last 2 minutes"
+
+This allows cron reminders to trigger proactive health reports automatically.
