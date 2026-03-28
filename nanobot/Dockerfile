@@ -23,8 +23,9 @@ COPY --from=workspace pyproject.toml uv.lock /app/
 # Copy mcp packages from mcp context
 COPY --from=mcp mcp-lms /app/mcp/mcp-lms
 
-# Copy mcp-obs from workspace context (it's a new package)
+# Copy mcp-obs and nanobot-websocket-channel from workspace context
 COPY --from=workspace mcp/mcp-obs /app/mcp/mcp-obs
+COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
 
 # Copy nanobot project files (from the primary context which is ./nanobot)
 COPY pyproject.toml /app/nanobot/pyproject.toml
