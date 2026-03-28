@@ -33,9 +33,13 @@ COPY . /app/nanobot
 # Copy config.json explicitly (it's gitignored but needed for runtime)
 COPY config.json /app/nanobot/config.json
 
-# Sync dependencies from root workspace (installs all workspace packages)
+# Copy root pyproject.toml and uv.lock so workspace sources resolve
+COPY --from=workspace pyproject.toml /app/pyproject.toml
+COPY --from=workspace uv.lock /app/uv.lock
+
+# Sync dependencies from root workspace to install all workspace packages
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --package nanobot --package mcp-lms --package nanobot-webchat --package mcp-webchat --package nanobot-channel-protocol
 
 # ---
 # Stage 2: use a final image without uv
