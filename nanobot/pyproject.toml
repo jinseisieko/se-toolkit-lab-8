@@ -4,10 +4,17 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = "==3.14.*"
-dependencies = ["mcp-lms", "mcp-webchat", "nanobot-ai", "nanobot-webchat"]
+dependencies = [
+    "mcp-lms",
+    "mcp-obs",
+    "mcp-webchat",
+    "nanobot-ai",
+    "nanobot-webchat",
+]
 
 [tool.uv.sources]
 nanobot-ai = { url = "https://github.com/HKUDS/nanobot/archive/e7d371ec1e6531b28898ec2c869ef338e8dd46ec.zip" }
 mcp-lms = { path = "../mcp/mcp-lms", editable = true }
+mcp-obs = { path = "../mcp/mcp-obs", editable = true }
 nanobot-webchat = { path = "../../nanobot-websocket-channel/nanobot-webchat", editable = true }
 mcp-webchat = { path = "../../nanobot-websocket-channel/mcp-webchat", editable = true }
