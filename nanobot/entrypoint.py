@@ -121,6 +121,27 @@ def main():
                 "NANOBOT_WEBSOCKET_TOKEN"
             ] = webchat_token
 
+    # Observability MCP server env vars
+    obs_victorialogs_url = os.environ.get("NANOBOT_VICTORIALOGS_URL")
+    obs_victoriatraces_url = os.environ.get("NANOBOT_VICTORIATRACES_URL")
+
+    if obs_victorialogs_url or obs_victoriatraces_url:
+        if "obs" not in config["tools"]["mcpServers"]:
+            config["tools"]["mcpServers"]["obs"] = {
+                "command": "python",
+                "args": ["-m", "mcp_obs"],
+            }
+        if "env" not in config["tools"]["mcpServers"]["obs"]:
+            config["tools"]["mcpServers"]["obs"]["env"] = {}
+        if obs_victorialogs_url:
+            config["tools"]["mcpServers"]["obs"]["env"]["NANOBOT_VICTORIALOGS_URL"] = (
+                obs_victorialogs_url
+            )
+        if obs_victoriatraces_url:
+            config["tools"]["mcpServers"]["obs"]["env"][
+                "NANOBOT_VICTORIATRACES_URL"
+            ] = obs_victoriatraces_url
+
     # Write resolved config
     with open(resolved_path, "w") as f:
         json.dump(config, f, indent=2)
