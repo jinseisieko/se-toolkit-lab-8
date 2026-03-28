@@ -107,6 +107,8 @@ services:
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     networks:
       - lms-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Mount only the parts nanobot needs to edit or read from the repo.
       - ./nanobot:/app/nanobot
@@ -116,9 +118,9 @@ services:
       - ./lab:/app/lab:ro
       - ./contributing:/app/contributing:ro
     environment:
-      # Task 1 used VM-shell URLs. In Docker, use service-to-service URLs instead.
-      - LLM_API_KEY=${LLM_API_KEY:?'LLM_API_KEY is required'}
-      - LLM_API_BASE_URL=http://qwen-code-api:${QWEN_CODE_API_CONTAINER_PORT:?'QWEN_CODE_API_CONTAINER_PORT is required'}/v1
+      # Using old qwen-code-oai-proxy (port 42005) instead of new qwen-code-api service
+      - LLM_API_KEY=${QWEN_CODE_API_KEY:?'QWEN_CODE_API_KEY is required'}
+      - LLM_API_BASE_URL=http://host.docker.internal:42005/v1
       - LLM_API_MODEL=${LLM_API_MODEL:?'LLM_API_MODEL is required'}
       - NANOBOT_LMS_BACKEND_URL=http://backend:${BACKEND_CONTAINER_PORT:?'BACKEND_CONTAINER_PORT is required'}
       - NANOBOT_LMS_API_KEY=${LMS_API_KEY:?'LMS_API_KEY is required'}
@@ -138,7 +140,6 @@ services:
       - OTEL_PYTHON_LOG_CORRELATION=true
     depends_on:
       - backend
-      - qwen-code-api
       - otel-collector
 
   # Task 2B — uncomment after you add nanobot-websocket-channel and want the Flutter build.

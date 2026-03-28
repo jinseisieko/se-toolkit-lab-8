@@ -26,6 +26,14 @@ def main():
     llm_api_base_url = os.environ.get("LLM_API_BASE_URL")
     llm_api_model = os.environ.get("LLM_API_MODEL")
 
+    # Fix localhost URLs for Docker networking
+    # When running in Docker, localhost means the container itself
+    # Use host.docker.internal or VM IP to reach the host
+    if llm_api_base_url and "localhost" in llm_api_base_url:
+        # Try host.docker.internal first (works on Docker Desktop)
+        # For Linux VM, we'll use the gateway IP
+        llm_api_base_url = llm_api_base_url.replace("localhost", "host.docker.internal")
+
     if llm_api_key:
         config["providers"]["custom"]["apiKey"] = llm_api_key
     if llm_api_base_url:
@@ -50,10 +58,7 @@ def main():
         config["channels"] = {}
 
     if webchat_host or webchat_port:
-        config["channels"]["webchat"] = {
-            "enabled": True,
-            "allowFrom": ["*"]
-        }
+        config["channels"]["webchat"] = {"enabled": True, "allowFrom": ["*"]}
         if webchat_host:
             config["channels"]["webchat"]["host"] = webchat_host
         if webchat_port:
@@ -73,14 +78,18 @@ def main():
         if "lms" not in config["tools"]["mcpServers"]:
             config["tools"]["mcpServers"]["lms"] = {
                 "command": "python",
-                "args": ["-m", "mcp_lms"]
+                "args": ["-m", "mcp_lms"],
             }
         if "env" not in config["tools"]["mcpServers"]["lms"]:
             config["tools"]["mcpServers"]["lms"]["env"] = {}
         if lms_backend_url:
-            config["tools"]["mcpServers"]["lms"]["env"]["NANOBOT_LMS_BACKEND_URL"] = lms_backend_url
+            config["tools"]["mcpServers"]["lms"]["env"]["NANOBOT_LMS_BACKEND_URL"] = (
+                lms_backend_url
+            )
         if lms_api_key:
-            config["tools"]["mcpServers"]["lms"]["env"]["NANOBOT_LMS_API_KEY"] = lms_api_key
+            config["tools"]["mcpServers"]["lms"]["env"]["NANOBOT_LMS_API_KEY"] = (
+                lms_api_key
+            )
 
     # Webchat MCP server env vars
     webchat_relay_url = os.environ.get("NANOBOT_WEBSOCKET_RELAY_URL")
@@ -90,14 +99,18 @@ def main():
         if "webchat" not in config["tools"]["mcpServers"]:
             config["tools"]["mcpServers"]["webchat"] = {
                 "command": "python",
-                "args": ["-m", "mcp_webchat"]
+                "args": ["-m", "mcp_webchat"],
             }
         if "env" not in config["tools"]["mcpServers"]["webchat"]:
             config["tools"]["mcpServers"]["webchat"]["env"] = {}
         if webchat_relay_url:
-            config["tools"]["mcpServers"]["webchat"]["env"]["NANOBOT_WEBSOCKET_RELAY_URL"] = webchat_relay_url
+            config["tools"]["mcpServers"]["webchat"]["env"][
+                "NANOBOT_WEBSOCKET_RELAY_URL"
+            ] = webchat_relay_url
         if webchat_token:
-            config["tools"]["mcpServers"]["webchat"]["env"]["NANOBOT_WEBSOCKET_TOKEN"] = webchat_token
+            config["tools"]["mcpServers"]["webchat"]["env"][
+                "NANOBOT_WEBSOCKET_TOKEN"
+            ] = webchat_token
 
     # Write resolved config
     with open(resolved_path, "w") as f:
@@ -106,14 +119,17 @@ def main():
     print(f"Using config: {resolved_path}", file=sys.stderr)
 
     # Launch nanobot gateway
-    os.execvp("nanobot", [
+    os.execvp(
         "nanobot",
-        "gateway",
-        "--config",
-        resolved_path,
-        "--workspace",
-        workspace_path
-    ])
+        [
+            "nanobot",
+            "gateway",
+            "--config",
+            resolved_path,
+            "--workspace",
+            workspace_path,
+        ],
+    )
 
 
 if __name__ == "__main__":
