@@ -17,9 +17,6 @@ def main():
     resolved_path = "/app/nanobot/config/config.resolved.json"
     workspace_path = "/app/nanobot/workspace"
 
-    # Ensure config directory exists
-    os.makedirs(os.path.dirname(resolved_path), exist_ok=True)
-
     with open(config_path, "r") as f:
         config = json.load(f)
 

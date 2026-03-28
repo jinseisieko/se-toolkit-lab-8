@@ -53,7 +53,8 @@ COPY --from=builder --chown=nonroot:nonroot /app /app
 
 # Create writable directories for nanobot workspace and config
 RUN mkdir -p /app/nanobot/workspace /app/nanobot/config && \
-    chown -R nonroot:nonroot /app/nanobot
+    chown -R nonroot:nonroot /app/nanobot && \
+    chmod 755 /app/nanobot/config
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
