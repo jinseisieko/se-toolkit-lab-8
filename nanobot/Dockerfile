@@ -17,15 +17,16 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 
-# Copy workspace files first for better caching
-COPY pyproject.toml uv.lock ./
+# Copy root workspace files for dependency resolution
+COPY pyproject.toml uv.lock /app/
 
-# Sync dependencies (no dev deps)
+# Copy nanobot project
+COPY nanobot/pyproject.toml /app/nanobot/pyproject.toml
+COPY nanobot/ /app/nanobot/
+
+# Sync dependencies (no dev deps, install nanobot package)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen
-
-# Copy the rest of the nanobot source
-COPY . /app/nanobot
+    cd /app/nanobot && uv sync --frozen --no-dev
 
 # ---
 # Stage 2: use a final image without uv
