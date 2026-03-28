@@ -16,29 +16,41 @@
 
 ## ⚠️ Setup Notes (Actual Deployment)
 
-### Qwen Code API — Using Old Proxy
+### Qwen Code API — Fixed Build
 
-The new `qwen-code-api` service in `docker-compose.yml` may have build issues with the submodule. **Alternative**: use the old `qwen-code-oai-proxy` from `~/qwen-code-oai-proxy/`:
+The `qwen-code-api` service had a Dockerfile bug where source code was copied **after** `uv sync`, causing `ModuleNotFoundError`. This was fixed by:
 
-```bash
-# Start the old proxy instead
-cd ~/qwen-code-oai-proxy
-docker compose up -d
+1. Copying `src/` **before** running `uv sync`
+2. Using `--no-editable` flag so the package installs correctly
+
+**If you encounter `ModuleNotFoundError: qwen_code_api`**, update your `qwen-code-api/Dockerfile`:
+
+```dockerfile
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+COPY src/ ./src/
+
+# Install the package (not editable) so the module is properly available
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-editable
 ```
 
-**API Key**: The old proxy uses a different API key. Check `~/qwen-code-oai-proxy/.env`:
+Then rebuild:
 
 ```bash
-QWEN_API_KEY=qwen-api-key-lab6-2026  # Use this in .env.docker.secret
+cd ~/se-toolkit-lab-8
+docker compose --env-file .env.docker.secret build --no-cache qwen-code-api
+docker compose --env-file .env.docker.secret up -d qwen-code-api
 ```
 
-**Update `.env.docker.secret`**:
+**API Key**: Use the key from `.env.docker.secret`:
 
 ```text
-QWEN_CODE_API_KEY=qwen-api-key-lab6-2026  # Not the oauth token from ~/.qwen/
+QWEN_CODE_API_KEY=qwen-api-key-lab6-2026
 ```
 
-> **Important**: The OAuth token in `~/.qwen/oauth_creds.json` does NOT work directly with the old proxy. The proxy manages OAuth internally — you just need the proxy API key.
+> **Important**: The OAuth token in `~/.qwen/oauth_creds.json` is used by the Qwen CLI for authentication. The `qwen-code-api` service uses the API key from `.env.docker.secret`.
 
 ### DNS Configuration for Docker
 
@@ -110,19 +122,12 @@ curl http://localhost:42005/v1/models -H "Authorization: Bearer YOUR_QWEN_API_KE
 |---------|---------|------|-------|
 | `backend` | FastAPI LMS API | 42001 | — |
 | `postgres` | PostgreSQL database | 42004 | — |
-| `qwen-code-api` | LLM proxy | 42005 | ⚠️ May have build issues — use `~/qwen-code-oai-proxy` instead |
+| `qwen-code-api` | LLM proxy | 42005 | ✅ Fixed: copy src before uv sync, use --no-editable |
 | `nanobot` | AI agent gateway (Task 1+) | 18790 (internal) | Uncomment in Task 2 |
 | `caddy` | Reverse proxy | 42002 | — |
 | `victorialogs` | Log storage | 42010 | — |
 | `victoriatraces` | Trace storage | 42011 | — |
 | `otel-collector` | OpenTelemetry collector | — | — |
-
-> **Note**: If `qwen-code-api` container fails with `ModuleNotFoundError`, use the old proxy:
->
-> ```bash
-> cd ~/qwen-code-oai-proxy && docker compose up -d
-> # Then set QWEN_CODE_API_KEY=qwen-api-key-lab6-2026 in .env.docker.secret
-> ```
 
 ---
 
@@ -154,7 +159,7 @@ cp .env.docker.example .env.docker.secret
 
 # IMPORTANT: Edit .env.docker.secret with your values:
 # - LMS_API_KEY (choose any)
-# - QWEN_CODE_API_KEY (use qwen-api-key-lab6-2026 if using old proxy)
+# - QWEN_CODE_API_KEY=qwen-api-key-lab6-2026
 # - NANOBOT_ACCESS_KEY (choose any)
 # - AUTOCHECKER_API_LOGIN (your university email)
 # - AUTOCHECKER_API_PASSWORD (GitHub username + Telegram alias)
@@ -413,18 +418,17 @@ Agent: "Here are the available labs: [1-8]. Which lab would you like to see?"
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
 | `No API key configured` | Missing global config | Create `~/.nanobot/config.json` with providers section |
-| `Connection error` to LLM | Wrong API key or proxy down | Use `qwen-api-key-lab6-2026` for old proxy; check `docker ps` |
+| `Connection error` to LLM | Wrong API key or service down | Check `docker ps` for qwen-code-api; verify QWEN_CODE_API_KEY in .env.docker.secret |
 | Agent explores filesystem | No MCP tools configured | Add `mcpServers.lms` to `config.json` |
 | MCP tools not appearing | `mcp-lms` not installed | Run `uv add mcp-lms --editable ../mcp/mcp-lms` |
-| `401 Not authenticated` | Using OAuth token with old proxy | Old proxy manages OAuth internally — use proxy API key |
 | Agent doesn't ask for lab | Skill prompt not loaded | Check `workspace/skills/lms/SKILL.md` exists with frontmatter |
 
 ### General
 
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
-| `ModuleNotFoundError: qwen_code_api` | Submodule not built correctly | Use old proxy: `cd ~/qwen-code-oai-proxy && docker compose up -d` |
-| `Connection error` in Flutter | LLM API key not resolved | Check `entrypoint.py` reads correct env vars; use `qwen-api-key-lab6-2026` for old proxy |
+| `ModuleNotFoundError: qwen_code_api` | Dockerfile copies src after uv sync | Fix Dockerfile: copy src/ before uv sync, use --no-editable |
+| `Connection error` in Flutter | LLM API key not resolved | Check `entrypoint.py` reads correct env vars |
 | Empty `/flutter` page | Flutter volume not mounted | Uncomment `client-web-flutter:/srv/flutter:ro` in Caddy |
 | WebSocket disconnects | Wrong `NANOBOT_ACCESS_KEY` | Clear browser data, re-enter key |
 | Slow replies | Model rate limit / busy | Wait 10-30s, not necessarily broken |
@@ -435,24 +439,19 @@ Agent: "Here are the available labs: [1-8]. Which lab would you like to see?"
 | Submodule empty (`qwen-code-api/`) | Not initialized | Run `git submodule update --init --recursive` |
 | `config.json` changes not pushed | File is gitignored | Copy via `scp` or create on VM directly |
 
-### Qwen API Key Confusion
+### Qwen API Key
 
-There are **two different API keys**:
-
-1. **OAuth token** (`~/.qwen/oauth_creds.json`) — Used by the **new** `qwen-code-api` service
-2. **Proxy API key** (`qwen-api-key-lab6-2026`) — Used by the **old** `qwen-code-oai-proxy`
-
-**If using old proxy** (recommended if new service fails):
+The API key is configured in `.env.docker.secret`:
 
 ```bash
-# Check the key in old proxy config
-cat ~/qwen-code-oai-proxy/.env | grep QWEN_API_KEY
+# Check the key in .env.docker.secret
+grep QWEN_CODE_API_KEY .env.docker.secret
 
-# Set in .env.docker.secret
+# Should be:
 QWEN_CODE_API_KEY=qwen-api-key-lab6-2026
 ```
 
-> **Important**: The OAuth token does NOT work directly with the old proxy. The proxy handles OAuth internally — you only need the proxy API key.
+> **Note**: The OAuth token in `~/.qwen/oauth_creds.json` is used by the Qwen CLI for interactive authentication. The `qwen-code-api` service uses the API key from `.env.docker.secret` for API access.
 
 ---
 
