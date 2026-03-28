@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 from mcp.types import Tool
 from pydantic import BaseModel
 
-if TYPE_CHECKING:
-    from mcp_obs.server import ObservabilityClient
+from mcp_obs.server import ObservabilityClient
 
 
 class LogsSearchParams(BaseModel):
