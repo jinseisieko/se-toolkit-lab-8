@@ -27,6 +27,9 @@ COPY --from=mcp mcp-lms /app/mcp/mcp-lms
 COPY pyproject.toml /app/nanobot/pyproject.toml
 COPY . /app/nanobot
 
+# Copy config.json explicitly (it's gitignored but needed for runtime)
+COPY config.json /app/nanobot/config.json
+
 # Sync dependencies (no dev deps, install nanobot package)
 RUN --mount=type=cache,target=/root/.cache/uv \
     cd /app/nanobot && uv sync --frozen --no-dev

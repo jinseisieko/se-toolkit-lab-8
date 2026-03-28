@@ -17,6 +17,18 @@ def main():
     resolved_path = "/app/nanobot/config/config.resolved.json"
     workspace_path = "/app/nanobot/workspace"
 
+    # Ensure config directory exists (in case not created by Dockerfile)
+    os.makedirs(os.path.dirname(resolved_path), exist_ok=True)
+
+    # Check if config file exists
+    if not os.path.exists(config_path):
+        print(f"Error: Config file not found: {config_path}", file=sys.stderr)
+        print(
+            "Make sure nanobot/config.json exists or is mounted via Docker volume",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     with open(config_path, "r") as f:
         config = json.load(f)
 
