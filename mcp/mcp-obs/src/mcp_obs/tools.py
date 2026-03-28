@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import httpx
+from mcp.types import Tool
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
@@ -40,14 +42,22 @@ class TracesGetParams(BaseModel):
     trace_id: str
 
 
-@dataclass
-class ToolSpec:
-    """Tool specification."""
+ToolPayload = BaseModel | dict | list
+ToolHandler = Callable[[ObservabilityClient, BaseModel], Awaitable[ToolPayload]]
 
+
+@dataclass(frozen=True, slots=True)
+class ToolSpec:
     name: str
     description: str
     model: type[BaseModel]
-    handler: Any
+    handler: ToolHandler
+
+    def as_tool(self) -> Tool:
+        schema = self.model.model_json_schema()
+        schema.pop("$defs", None)
+        schema.pop("title", None)
+        return Tool(name=self.name, description=self.description, inputSchema=schema)
 
 
 async def logs_search_handler(
