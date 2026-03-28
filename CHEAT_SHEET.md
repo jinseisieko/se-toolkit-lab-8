@@ -448,31 +448,290 @@ asyncio.run(main())
 | `Distribution not found` in Docker build | Wrong relative paths in pyproject.toml | Use `../../nanobot-websocket-channel/...` from nanobot context |
 | Submodule empty after clone | Not initialized | Run `git submodule update --init --recursive` |
 
-### Build Order
+---
 
-Always build before starting services (especially with `additional_contexts`):
+## Task 3 — Observability MCP Tools
+
+### Architecture
+
+```
+nanobot gateway
+    ↙     ↓      ↘
+  LMS   webchat  observability (mcp-obs)
+                          ↓
+              ┌───────────┴───────────┐
+              ↓                       ↓
+      VictoriaLogs           VictoriaTraces
+      (port 42010)            (port 42011)
+```
+
+### MCP Observability Tools
+
+| Tool | Purpose | Example Query |
+|------|---------|---------------|
+| `mcp_obs_logs_search` | Search VictoriaLogs using LogsQL | "Show errors from backend" |
+| `mcp_obs_logs_error_count` | Count errors per service | "Any errors in last 10m?" |
+| `mcp_obs_traces_list` | List recent traces for a service | "Show recent backend traces" |
+| `mcp_obs_traces_get` | Fetch specific trace by ID | "Get trace abc123" |
+
+### VictoriaLogs Queries
+
+```text
+# All errors in last hour
+_time:1h severity:ERROR
+
+# LMS backend errors only
+_time:10m service.name:"Learning Management Service" severity:ERROR
+
+# Errors with trace ID
+_time:1h severity:ERROR trace_id:*
+
+# Count errors by service
+_time:1h severity:ERROR | stats count() by service.name
+```
+
+### VictoriaTraces API
 
 ```bash
-# Build nanobot first (has additional_contexts: workspace, mcp)
+# List traces for a service
+curl "http://victoriatraces:10428/select/jaeger/api/traces?service=Learning%20Management%20Service&limit=20"
+
+# Get specific trace
+curl "http://victoriatraces:10428/select/jaeger/api/traces/<traceID>"
+```
+
+### Creating mcp-obs Package
+
+**Directory structure:**
+
+```
+mcp/mcp-obs/
+├── pyproject.toml
+└── src/mcp_obs/
+    ├── __init__.py
+    ├── __main__.py
+    ├── server.py      # MCP stdio server
+    ├── settings.py    # Environment settings
+    └── tools.py       # Tool specs and handlers
+```
+
+**pyproject.toml:**
+
+```toml
+[project]
+name = "mcp-obs"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = ["mcp>=1.0.0", "httpx>=0.28.0", "pydantic>=2.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_obs"]
+```
+
+**server.py pattern:**
+
+```python
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp_obs.settings import ObservabilitySettings
+from mcp_obs.tools import TOOL_SPECS, TOOLS_BY_NAME
+
+@dataclass
+class ObservabilityClient:
+    victorialogs_url: str
+    victoriatraces_url: str
+
+def create_server(client: ObservabilityClient) -> Server:
+    server = Server("observability")
+    
+    @server.list_tools()
+    async def list_tools() -> list[Tool]:
+        return [spec.as_tool() for spec in TOOL_SPECS]
+    
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
+        spec = TOOLS_BY_NAME.get(name)
+        args = spec.model.model_validate(arguments or {})
+        result = await spec.handler(client, args)
+        return [TextContent(type="text", text=json.dumps(result))]
+    
+    return server
+```
+
+**tools.py pattern:**
+
+```python
+@dataclass(frozen=True, slots=True)
+class ToolSpec:
+    name: str
+    description: str
+    model: type[BaseModel]
+    handler: Callable[..., Awaitable[dict]]
+    
+    def as_tool(self) -> Tool:
+        schema = self.model.model_json_schema()
+        schema.pop("$defs", None)
+        schema.pop("title", None)
+        return Tool(name=self.name, description=self.description, inputSchema=schema)
+
+async def logs_search_handler(client: ObservabilityClient, args: LogsSearchParams) -> dict:
+    url = f"{client.victorialogs_url}/select/logsql/query"
+    query = f"_time:{args.time_range} {args.query}"
+    async with httpx.AsyncClient() as http:
+        response = await http.get(url, params={"query": query, "limit": args.limit})
+        return response.json()
+```
+
+### nanobot Configuration
+
+**pyproject.toml (root):**
+
+```toml
+[tool.uv.workspace]
+members = [
+  "mcp/mcp-obs",
+  # ... other members
+]
+
+[tool.uv.sources]
+mcp-obs = { path = "mcp/mcp-obs", editable = true }
+```
+
+**nanobot/pyproject.toml:**
+
+```toml
+[project]
+dependencies = ["mcp-obs", ...]
+
+[tool.uv.sources]
+mcp-obs = { workspace = true }
+```
+
+**nanobot/Dockerfile:**
+
+```dockerfile
+# Copy workspace files
+COPY --from=workspace pyproject.toml uv.lock /app/
+
+# Copy MCP packages
+COPY --from=mcp mcp-lms /app/mcp/mcp-lms
+COPY --from=workspace mcp/mcp-obs /app/mcp/mcp-obs
+COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
+
+# Sync from root workspace
+RUN uv sync --frozen --no-dev --package nanobot
+```
+
+**nanobot/config.json:**
+
+```json
+{
+  "tools": {
+    "mcpServers": {
+      "obs": {
+        "command": "python",
+        "args": ["-m", "mcp_obs"],
+        "env": {
+          "NANOBOT_VICTORIALOGS_URL": "http://localhost:42010",
+          "NANOBOT_VICTORIATRACES_URL": "http://localhost:42011"
+        }
+      }
+    }
+  }
+}
+```
+
+**nanobot/entrypoint.py:**
+
+```python
+# Observability MCP server env vars
+obs_victorialogs_url = os.environ.get("NANOBOT_VICTORIALOGS_URL")
+obs_victoriatraces_url = os.environ.get("NANOBOT_VICTORIATRACES_URL")
+
+if obs_victorialogs_url or obs_victoriatraces_url:
+    if "obs" not in config["tools"]["mcpServers"]:
+        config["tools"]["mcpServers"]["obs"] = {
+            "command": "python",
+            "args": ["-m", "mcp_obs"],
+        }
+    config["tools"]["mcpServers"]["obs"]["env"] = {
+        "NANOBOT_VICTORIALOGS_URL": obs_victorialogs_url,
+        "NANOBOT_VICTORIATRACES_URL": obs_victoriatraces_url,
+    }
+```
+
+### Observability Skill Prompt
+
+**workspace/skills/observability/SKILL.md:**
+
+```markdown
+---
+name: observability
+description: Use VictoriaLogs and VictoriaTraces MCP tools
+always: true
+---
+
+## Investigation Strategy
+
+### When user asks about errors
+
+1. Call `logs_error_count` with narrow time window (e.g., `10m`)
+2. If errors > 0:
+   - Call `logs_search` to get details
+   - Extract `trace_id` from results
+   - Call `traces_get` with trace_id
+   - Summarize findings
+3. If errors = 0: Report no errors found
+
+## Query Patterns
+
+**Search for errors:**
+- query: `_time:10m service.name:"Learning Management Service" severity:ERROR`
+
+**Count errors:**
+- time_range: `10m` or `1h`
+- service: `"Learning Management Service"` (or empty for all)
+```
+
+### Common Issues & Fixes — Task 3
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| `No module named mcp_obs` | Package not in uv.lock | Run `uv lock` in root, rebuild nanobot |
+| `ImportError: cannot import ObservabilityClient` | Circular import | Use `TYPE_CHECKING` for forward references |
+| `ToolSpec has no attribute 'as_tool'` | Missing method | Add `as_tool()` method to ToolSpec dataclass |
+| `MCP server 'obs': failed to connect` | server.py crash | Check for circular imports, syntax errors |
+| Tool times out after 30s | VictoriaLogs/Traces slow | Increase timeout, check service health |
+| No logs found | Wrong field names | Use `service.name`, `severity`, `trace_id` |
+| 404 on trace fetch | Wrong trace ID format | Use full trace_id from logs, not shortened |
+
+### Good Log Signs for Task 3
+
+```
+nanobot-1  | 2026-03-28 12:02:37.500 | DEBUG | nanobot.agent.tools.mcp:connect_mcp_servers:226 - MCP: registered tool 'mcp_obs_logs_search' from server 'obs'
+nanobot-1  | 2026-03-28 12:02:37.500 | DEBUG | nanobot.agent.tools.mcp:connect_mcp_servers:226 - MCP: registered tool 'mcp_obs_logs_error_count' from server 'obs'
+nanobot-1  | 2026-03-28 12:02:37.500 | DEBUG | nanobot.agent.tools.mcp:connect_mcp_servers:226 - MCP: registered tool 'mcp_obs_traces_list' from server 'obs'
+nanobot-1  | 2026-03-28 12:02:37.500 | DEBUG | nanobot.agent.tools.mcp:connect_mcp_servers:226 - MCP: registered tool 'mcp_obs_traces_get' from server 'obs'
+nanobot-1  | 2026-03-28 12:02:37.500 | INFO  | nanobot.agent.tools.mcp:connect_mcp_servers:246 - MCP server 'obs': connected, 4 tools registered
+nanobot-1  | 2026-03-28 12:03:02.068 | INFO  | nanobot.agent.loop:_prepare_tools:253 - Tool call: mcp_obs_logs_error_count({"time_range": "10m", "service": "Learning Management Service"})
+```
+
+### Build Order for Task 3
+
+```bash
+# After adding mcp-obs to workspace
+cd /path/to/repo
+uv lock  # Regenerate root lock file
+
+# On VM
+cd ~/se-toolkit-lab-8
+git pull origin 8-task-give-the-agent-new-eyes
 docker compose --env-file .env.docker.secret build nanobot
-
-# Build Flutter client
-docker compose --env-file .env.docker.secret build client-web-flutter
-
-# Then start all services
-docker compose --env-file .env.docker.secret up -d
-```
-
-### Good Log Signs
-
-```
-nanobot-1  | Using config: /app/nanobot/config/config.resolved.json
-nanobot-1  | 🐈 Starting nanobot gateway version 0.1.4.post5 on port 18790...
-nanobot-1  | 2026-03-28 10:55:05.192 | INFO  | nanobot.channels.manager:_init_channels:58 - WebChat channel enabled
-nanobot-1  | ✓ Channels enabled: webchat
-nanobot-1  | 2026-03-28 10:55:07.100 | INFO  | nanobot.agent.tools.mcp:connect_mcp_servers:246 - MCP server 'lms': connected, 9 tools registered
-nanobot-1  | 2026-03-28 10:55:08.372 | INFO  | nanobot.agent.tools.mcp:connect_mcp_servers:246 - MCP server 'webchat': connected, 1 tools registered
-nanobot-1  | 2026-03-28 10:55:08.372 | INFO  | nanobot.agent.loop:run:280 - Agent loop started
+docker compose --env-file .env.docker.secret up -d --force-recreate nanobot
 ```
 
 ---
