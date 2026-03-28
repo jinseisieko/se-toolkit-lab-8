@@ -20,6 +20,9 @@ WORKDIR /app
 # Copy root workspace files from workspace context (the repo root)
 COPY --from=workspace pyproject.toml uv.lock /app/
 
+# Copy mcp packages from mcp context
+COPY --from=mcp mcp-lms /app/mcp/mcp-lms
+
 # Copy nanobot project files (from the primary context which is ./nanobot)
 COPY pyproject.toml /app/nanobot/pyproject.toml
 COPY . /app/nanobot
